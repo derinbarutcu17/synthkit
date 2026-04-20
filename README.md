@@ -38,9 +38,15 @@ If you want a health check, use:
 
 - MCP server for agent runtimes
 - CLI for humans and shell automation
+- streamable HTTP MCP for remote tool callers
 - local HTTP API for SDKs and custom runtimes
 - TypeScript SDK for embedding
 - Python SDK scaffold for direct local API calls
+
+## MCP transports
+
+- `./pnpm exec synthkit serve mcp` for stdio
+- `./pnpm exec synthkit serve mcp-http` for streamable HTTP
 
 ## What it is
 

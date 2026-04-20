@@ -3,6 +3,7 @@
 ## MCP
 
 - stdio transport is the default.
+- streamable HTTP is available for remote MCP clients and uses stateful sessions with DNS rebinding protection enabled on the local server.
 - tools, resources, and prompts are exposed from the same engine.
 - capability discovery is explicit.
 - resource templates are listed for project and synthesis URI patterns.

@@ -3,7 +3,7 @@ import path from "node:path";
 import { Command } from "commander";
 import { SynthKitEngine } from "@synthkit/core";
 import { startApiServer } from "@synthkit/api";
-import { startMcpServer } from "@synthkit/mcp";
+import { startMcpHttpServer, startMcpServer } from "@synthkit/mcp";
 import { ProviderConfigSchema } from "@synthkit/providers";
 import { z } from "zod";
 
@@ -237,6 +237,18 @@ program.command("serve").description("Start local servers").addCommand(
     const opts = this.optsWithGlobals() as { root: string };
     await startMcpServer({ rootPath: opts.root });
   })
+).addCommand(
+  new Command("mcp-http")
+    .option("--port <port>", "HTTP port", process.env.PORT ?? "8788")
+    .option("--host <host>", "HTTP host", process.env.HOST ?? "127.0.0.1")
+    .action(async function (this: Command) {
+      const opts = this.optsWithGlobals() as { root: string; port: string; host: string };
+      await startMcpHttpServer({
+        rootPath: opts.root,
+        host: opts.host,
+        port: Number(opts.port)
+      });
+    })
 );
 
 program

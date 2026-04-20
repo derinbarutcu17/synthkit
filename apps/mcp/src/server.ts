@@ -1,6 +1,9 @@
+import http from "node:http";
+import { randomUUID } from "node:crypto";
 import path from "node:path";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import {
   CallToolRequestSchema,
   GetPromptRequestSchema,
@@ -352,6 +355,63 @@ export const startMcpServer = async (options: McpServerOptions = {}) => {
   const transport = new StdioServerTransport();
   await state.server.connect(transport);
   return state;
+};
+
+export interface McpHttpServerOptions extends McpServerOptions {
+  host?: string;
+  port?: number;
+  path?: string;
+}
+
+export const startMcpHttpServer = async (options: McpHttpServerOptions = {}) => {
+  const state = createMcpServer(options);
+  const host = options.host ?? process.env.HOST ?? "127.0.0.1";
+  const port = options.port ?? Number(process.env.PORT ?? 8788);
+  const routePath = options.path ?? "/mcp";
+  const transport = new StreamableHTTPServerTransport({
+    enableJsonResponse: true,
+    enableDnsRebindingProtection: true,
+    allowedHosts: [],
+    sessionIdGenerator: () => randomUUID()
+  } as ConstructorParameters<typeof StreamableHTTPServerTransport>[0]);
+  await state.server.connect(transport as any);
+
+  const httpServer = http.createServer(async (req, res) => {
+    if (!req.url) {
+      res.statusCode = 400;
+      res.end("Missing request URL");
+      return;
+    }
+    const requestUrl = new URL(req.url, `http://${req.headers.host ?? `${host}:${port}`}`);
+    if (requestUrl.pathname !== routePath) {
+      res.statusCode = 404;
+      res.end("Not found");
+      return;
+    }
+    await transport.handleRequest(req, res);
+  });
+
+  await new Promise<void>((resolve) => {
+    httpServer.listen(port, host, resolve);
+  });
+
+  const address = httpServer.address();
+  const actualPort = typeof address === "object" && address && "port" in address ? address.port : port;
+  const guardedTransport = transport as typeof transport & {
+    _allowedHosts?: string[];
+  };
+  guardedTransport._allowedHosts = Array.from(
+    new Set([
+      host,
+      `${host}:${actualPort}`,
+      "127.0.0.1",
+      `127.0.0.1:${actualPort}`,
+      "localhost",
+      `localhost:${actualPort}`
+    ])
+  );
+
+  return { ...state, httpServer, host, port: actualPort, path: routePath };
 };
 
 const textResult = (value: unknown) => ({

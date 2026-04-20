@@ -6,6 +6,7 @@ apps/
   cli/
   mcp/
   web/        # optional placeholder
+.github/
 packages/
   core/
   domain/
