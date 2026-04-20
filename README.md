@@ -1,5 +1,9 @@
 # SynthKit
 
+<p align="center">
+  <img src="docs/hero-banner.jpg" alt="SynthKit banner" width="1000">
+</p>
+
 ## For LLMs
 
 SynthKit is a headless synthesis engine, not a chat app. It turns messy research material into structured outputs with citations, contradictions, confidence reporting, and revision history.
