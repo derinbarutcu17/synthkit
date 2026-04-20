@@ -22,6 +22,7 @@ import {
 import { SynthKitEngine, type SynthKitConfig } from "@synthkit/core";
 import { ProviderConfigSchema } from "@synthkit/providers";
 import { z } from "zod";
+import { apiRouteDefinitions, routeSchemas } from "./routes.js";
 
 const CreateProjectSchema = z.object({
   name: z.string().min(1),
@@ -348,253 +349,67 @@ const parseProviderEnv = () => {
 
 const getOpenApi = (manifest: unknown) => {
   const jsonSchema = <T extends z.ZodTypeAny>(schema: T) => z.toJSONSchema(schema);
-  const ok = <T extends z.ZodTypeAny>(schema: T) =>
-    jsonSchema(
-      z.object({
-        ok: z.literal(true),
-        data: schema
-      })
-    );
-  const err = jsonSchema(
-    z.object({
-      ok: z.literal(false),
-      error: z.object({
-        code: z.string(),
-        message: z.string()
-      })
-    })
-  );
-
-  const createProjectRequest = z.object({
-    name: z.string().min(1),
-    description: z.string().optional(),
-    defaultMode: SynthesisModeV1Schema.optional()
-  });
-  const ingestTextRequest = z.object({
-    text: z.string().optional(),
-    markdown: z.string().optional(),
-    title: z.string().optional(),
-    provenance: z
-      .object({
-        sourceName: z.string().optional(),
-        sourceUri: z.string().nullable().optional(),
-        importedBy: z.string().optional()
-      })
-      .optional()
-  });
-  const ingestUrlRequest = z.object({
-    url: z.string().url(),
-    title: z.string().optional()
-  });
-  const ingestPathRequest = z.object({
-    filePath: z.string().min(1),
-    title: z.string().optional()
-  });
-  const ingestTranscriptRequest = z.object({
-    transcript: z.string(),
-    title: z.string().optional()
-  });
-  const synthesisRequest = z.object({
-    mode: SynthesisModeV1Schema,
-    title: z.string().min(1),
-    question: z.string().optional(),
-    audience: z.string().optional(),
-    desiredDirections: z.union([z.literal(2), z.literal(3)]).optional(),
-    sourceIds: z.array(z.string()).optional()
-  });
-  const revisionRequest = z.object({
-    sectionId: z.string().min(1),
-    body: z.string().min(1),
-    reason: z.string().min(1),
-    actor: z.string().optional()
-  });
-  const exportRequest = z.object({ format: z.enum(["markdown", "json"]) });
-
+  const routeToPath = (path: string) => path.replace(/:([A-Za-z0-9_]+)/g, "{$1}");
+  const operations = apiRouteDefinitions.reduce<Record<string, Record<string, unknown>>>((acc, route) => {
+    const path = routeToPath(route.path);
+    const existing = acc[path] ?? {};
+    acc[path] = {
+      ...existing,
+      [route.method]: {
+        summary: route.summary,
+        ...(route.parameters
+          ? {
+              parameters: route.parameters.map((parameter) => ({
+                name: parameter.name,
+                in: parameter.in,
+                required: parameter.required,
+                schema: jsonSchema(parameter.schema)
+              }))
+            }
+          : {}),
+        ...(route.requestBody
+          ? {
+              requestBody: {
+                required: true,
+                content: {
+                  "application/json": {
+                    schema: jsonSchema(route.requestBody)
+                  }
+                }
+              }
+            }
+          : {}),
+        responses: Object.fromEntries(
+          Object.entries(route.responses).map(([status, schema]) => [
+            status,
+            {
+              description: Number(status) >= 400 ? "Error" : "OK",
+              content: {
+                "application/json": {
+                  schema: jsonSchema(schema as z.ZodTypeAny)
+                }
+              }
+            }
+          ])
+        )
+      }
+    };
+    return acc;
+  }, {});
   return {
     openapi: "3.1.0",
-    info: {
-      title: "SynthKit API",
-      version: "0.1.0"
-    },
+    info: { title: "SynthKit API", version: "0.1.0" },
     servers: [{ url: "http://127.0.0.1:8787" }],
-    paths: {
-      "/v1/health": {
-        get: {
-          summary: "Health check",
-          responses: {
-            200: { description: "OK", content: { "application/json": { schema: ok(z.object({ status: z.literal("ok"), rootPath: z.string() })) } } }
-          }
-        }
-      },
-      "/v1/version": {
-        get: {
-          summary: "Version",
-          responses: {
-            200: { description: "OK", content: { "application/json": { schema: ok(z.object({ version: z.string() })) } } }
-          }
-        }
-      },
-      "/v1/capabilities": {
-        get: {
-          summary: "Capability manifest",
-          responses: {
-            200: { description: "OK", content: { "application/json": { schema: ok(CapabilityManifestV1Schema) } } }
-          }
-        }
-      },
-      "/v1/projects": {
-        get: {
-          summary: "List projects",
-          responses: {
-            200: { description: "OK", content: { "application/json": { schema: ok(z.array(ProjectV1Schema)) } } }
-          }
-        },
-        post: {
-          summary: "Create project",
-          requestBody: { required: true, content: { "application/json": { schema: jsonSchema(createProjectRequest) } } },
-          responses: {
-            200: { description: "OK", content: { "application/json": { schema: ok(ProjectV1Schema) } } },
-            400: { description: "Bad request", content: { "application/json": { schema: err } } }
-          }
-        }
-      },
-      "/v1/projects/{projectId}": {
-        get: {
-          summary: "Get project",
-          parameters: [{ name: "projectId", in: "path", required: true, schema: { type: "string" } }],
-          responses: {
-            200: { description: "OK", content: { "application/json": { schema: ok(ProjectV1Schema) } } },
-            404: { description: "Not found", content: { "application/json": { schema: err } } }
-          }
-        }
-      },
-      "/v1/projects/{projectId}/ingest/text": {
-        post: {
-          summary: "Ingest text",
-          parameters: [{ name: "projectId", in: "path", required: true, schema: { type: "string" } }],
-          requestBody: { required: true, content: { "application/json": { schema: jsonSchema(ingestTextRequest) } } },
-          responses: { 200: { description: "OK", content: { "application/json": { schema: ok(z.any()) } } } }
-        }
-      },
-      "/v1/projects/{projectId}/ingest/markdown": {
-        post: {
-          summary: "Ingest markdown",
-          parameters: [{ name: "projectId", in: "path", required: true, schema: { type: "string" } }],
-          requestBody: { required: true, content: { "application/json": { schema: jsonSchema(ingestTextRequest) } } },
-          responses: { 200: { description: "OK", content: { "application/json": { schema: ok(z.any()) } } } }
-        }
-      },
-      "/v1/projects/{projectId}/ingest/url": {
-        post: {
-          summary: "Ingest url",
-          parameters: [{ name: "projectId", in: "path", required: true, schema: { type: "string" } }],
-          requestBody: { required: true, content: { "application/json": { schema: jsonSchema(ingestUrlRequest) } } },
-          responses: { 200: { description: "OK", content: { "application/json": { schema: ok(z.any()) } } } }
-        }
-      },
-      "/v1/projects/{projectId}/ingest/pdf": {
-        post: {
-          summary: "Ingest pdf",
-          parameters: [{ name: "projectId", in: "path", required: true, schema: { type: "string" } }],
-          requestBody: { required: true, content: { "application/json": { schema: jsonSchema(ingestPathRequest) } } },
-          responses: { 200: { description: "OK", content: { "application/json": { schema: ok(z.any()) } } } }
-        }
-      },
-      "/v1/projects/{projectId}/ingest/image": {
-        post: {
-          summary: "Ingest image",
-          parameters: [{ name: "projectId", in: "path", required: true, schema: { type: "string" } }],
-          requestBody: { required: true, content: { "application/json": { schema: jsonSchema(ingestPathRequest) } } },
-          responses: { 200: { description: "OK", content: { "application/json": { schema: ok(z.any()) } } } }
-        }
-      },
-      "/v1/projects/{projectId}/ingest/transcript": {
-        post: {
-          summary: "Ingest transcript",
-          parameters: [{ name: "projectId", in: "path", required: true, schema: { type: "string" } }],
-          requestBody: { required: true, content: { "application/json": { schema: jsonSchema(ingestTranscriptRequest) } } },
-          responses: { 200: { description: "OK", content: { "application/json": { schema: ok(z.any()) } } } }
-        }
-      },
-      "/v1/projects/{projectId}/synthesize": {
-        post: {
-          summary: "Run synthesis",
-          parameters: [{ name: "projectId", in: "path", required: true, schema: { type: "string" } }],
-          requestBody: { required: true, content: { "application/json": { schema: jsonSchema(synthesisRequest) } } },
-          responses: { 200: { description: "OK", content: { "application/json": { schema: ok(z.any()) } } } }
-        }
-      },
-      "/v1/syntheses/{synthesisId}/draft": {
-        get: {
-          summary: "Get draft",
-          parameters: [{ name: "synthesisId", in: "path", required: true, schema: { type: "string" } }],
-          responses: { 200: { description: "OK", content: { "application/json": { schema: ok(DraftV1Schema) } } } }
-        }
-      },
-      "/v1/syntheses/{synthesisId}/citations": {
-        get: {
-          summary: "Get citations",
-          parameters: [{ name: "synthesisId", in: "path", required: true, schema: { type: "string" } }],
-          responses: { 200: { description: "OK", content: { "application/json": { schema: ok(z.array(CitationV1Schema)) } } } }
-        }
-      },
-      "/v1/syntheses/{synthesisId}/contradictions": {
-        get: {
-          summary: "Get contradictions",
-          parameters: [{ name: "synthesisId", in: "path", required: true, schema: { type: "string" } }],
-          responses: { 200: { description: "OK", content: { "application/json": { schema: ok(z.array(ContradictionV1Schema)) } } } }
-        }
-      },
-      "/v1/syntheses/{synthesisId}/revisions": {
-        get: {
-          summary: "Get revisions",
-          parameters: [{ name: "synthesisId", in: "path", required: true, schema: { type: "string" } }],
-          responses: { 200: { description: "OK", content: { "application/json": { schema: ok(z.array(RevisionV1Schema)) } } } }
-        },
-        post: {
-          summary: "Revise section",
-          parameters: [{ name: "synthesisId", in: "path", required: true, schema: { type: "string" } }],
-          requestBody: { required: true, content: { "application/json": { schema: jsonSchema(revisionRequest) } } },
-          responses: { 200: { description: "OK", content: { "application/json": { schema: ok(RevisionV1Schema) } } } }
-        }
-      },
-      "/v1/syntheses/{synthesisId}/export": {
-        get: {
-          summary: "List exports",
-          parameters: [{ name: "synthesisId", in: "path", required: true, schema: { type: "string" } }],
-          responses: { 200: { description: "OK", content: { "application/json": { schema: ok(z.array(ExportArtifactV1Schema)) } } } }
-        },
-        post: {
-          summary: "Create export",
-          parameters: [{ name: "synthesisId", in: "path", required: true, schema: { type: "string" } }],
-          requestBody: { required: true, content: { "application/json": { schema: jsonSchema(exportRequest) } } },
-          responses: { 200: { description: "OK", content: { "application/json": { schema: ok(ExportArtifactV1Schema) } } } }
-        }
-      },
-      "/v1/syntheses/{synthesisId}/stages": {
-        get: {
-          summary: "Stage trace",
-          parameters: [{ name: "synthesisId", in: "path", required: true, schema: { type: "string" } }],
-          responses: { 200: { description: "OK", content: { "application/json": { schema: ok(z.array(z.object({ stage: z.string(), startedAt: z.string(), finishedAt: z.string(), inputSummary: z.string(), outputSummary: z.string() }))) } } } }
-        }
-      }
-    },
+    paths: operations,
     components: {
       schemas: {
         CapabilityManifestV1: jsonSchema(CapabilityManifestV1Schema),
-        ProjectV1: jsonSchema(ProjectV1Schema),
-        SourceV1: jsonSchema(SourceV1Schema),
-        SourceAssetV1: jsonSchema(SourceAssetV1Schema),
-        ChunkV1: jsonSchema(ChunkV1Schema),
-        SynthesisRequestV1: jsonSchema(SynthesisRequestV1Schema),
-        ThemeClusterV1: jsonSchema(ThemeClusterV1Schema),
-        ContradictionV1: jsonSchema(ContradictionV1Schema),
-        DraftSectionV1: jsonSchema(DraftSectionV1Schema),
-        DraftV1: jsonSchema(DraftV1Schema),
-        CitationV1: jsonSchema(CitationV1Schema),
-        ConfidenceReportV1: jsonSchema(ConfidenceReportV1Schema),
-        RevisionV1: jsonSchema(RevisionV1Schema),
-        ExportArtifactV1: jsonSchema(ExportArtifactV1Schema)
+        ProjectV1: jsonSchema(routeSchemas.responseEnvelope(ProjectV1Schema)),
+        CitationV1: jsonSchema(routeSchemas.responseEnvelope(CitationV1Schema)),
+        ContradictionV1: jsonSchema(routeSchemas.responseEnvelope(ContradictionV1Schema)),
+        DraftV1: jsonSchema(routeSchemas.responseEnvelope(DraftV1Schema)),
+        ExportArtifactV1: jsonSchema(routeSchemas.responseEnvelope(ExportArtifactV1Schema)),
+        RevisionV1: jsonSchema(routeSchemas.responseEnvelope(RevisionV1Schema))
       },
       examples: {
         CapabilityManifestV1: manifest

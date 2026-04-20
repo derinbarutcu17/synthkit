@@ -50,7 +50,7 @@ It turns notes, markdown, PDFs, webpages, transcripts, and image inputs into str
 - streamable HTTP MCP for remote tool callers
 - local HTTP API for SDKs and custom runtimes
 - TypeScript SDK for embedding
-- Python SDK scaffold for direct local API calls
+- Python SDK with ergonomic workflow helpers for direct local API calls
 
 If you want a health check, use:
 

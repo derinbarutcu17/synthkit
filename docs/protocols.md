@@ -19,10 +19,10 @@
 
 - `/v1` routes are local-first and JSON-only.
 - the API mirrors the same domain entities and synthesis workflow.
-- OpenAPI is exposed at `/v1/openapi.json` and is generated from the same route schemas used by the server.
+- OpenAPI is exposed at `/v1/openapi.json` and is derived from the shared route-definition registry used by the server.
 
 ## SDK
 
 - the TypeScript SDK mirrors the HTTP API.
 - the in-process core client is available for agents running in the same process.
-- the Python SDK is a thin local API client for automation-heavy workflows.
+- the Python SDK is a local API client with helper methods for the common workflow, but it is not parity with the TypeScript SDK.

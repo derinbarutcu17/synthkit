@@ -234,13 +234,21 @@ export class SynthKitIngestor {
   async ingestTranscript(input: IngestInputBase & { transcript: string }): Promise<IngestResult> {
     const normalized = normalizeTranscript(input.transcript);
     const text = normalized.map((line) => line.text).join("\n");
-    const source = createSourceRecord(input, "transcript", text, text ? "high" : "failed", input.provenance?.sourceUri);
+    const transcriptionSupported = this.context.provider.capabilities.transcription;
+    const warnings = transcriptionSupported ? [] : ["Transcription provider unavailable; using provided transcript text only"];
+    const source = createSourceRecord(
+      input,
+      "transcript",
+      text,
+      text ? (transcriptionSupported ? "high" : "medium") : "failed",
+      input.provenance?.sourceUri
+    );
     const duplicateOf = this.findDuplicateSource(source);
     if (duplicateOf) source.metadata = { ...source.metadata, duplicateOf, duplicateCandidate: true };
     const asset = loadTextAsset(source.id, text, "text/plain", "transcript");
     const chunks = chunkText(source.projectId, source.id, asset.id, text, source.extractionQuality);
     const saved = saveSourceSet(this.context.storage, source, [asset], chunks);
-    return { ...saved, ...(duplicateOf ? { duplicateOf } : {}), warnings: [] };
+    return { ...saved, ...(duplicateOf ? { duplicateOf } : {}), warnings };
   }
 
   async ingestImage(input: IngestInputBase & { filePath: string }): Promise<IngestResult> {
@@ -257,16 +265,22 @@ export class SynthKitIngestor {
     const duplicateOf = this.findDuplicateSource(source);
     if (duplicateOf) source.metadata = { ...source.metadata, duplicateOf, duplicateCandidate: true };
     let extracted = "";
-    try {
-      const ocr = await this.context.provider.ocr({
-        mimeType: guessMimeType(input.filePath),
-        bytes,
-        ...(input.title ? { hint: input.title } : {})
-      });
-      extracted = normalize(ocr.text);
-      if (ocr.confidence < 0.4) warnings.push("OCR confidence was low");
-    } catch (error) {
-      warnings.push(`OCR failed: ${(error as Error).message}`);
+    if (!this.context.provider.capabilities.ocr) {
+      warnings.push("OCR provider unavailable; image text was not extracted");
+      source.extractionQuality = "failed";
+    } else {
+      try {
+        const ocr = await this.context.provider.ocr({
+          mimeType: guessMimeType(input.filePath),
+          bytes,
+          ...(input.title ? { hint: input.title } : {})
+        });
+        extracted = normalize(ocr.text);
+        if (ocr.confidence < 0.4) warnings.push("OCR confidence was low");
+      } catch (error) {
+        warnings.push(`OCR failed: ${(error as Error).message}`);
+        source.extractionQuality = "failed";
+      }
     }
     const asset = SourceAssetV1Schema.parse({
       schemaVersion: 1,

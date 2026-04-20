@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { createAppServer } from "../src/server.js";
+import { apiRouteDefinitions } from "../src/routes.js";
 
 describe("API server", () => {
   const servers: Array<{ app: { close: () => Promise<void> } }> = [];
@@ -20,8 +21,17 @@ describe("API server", () => {
     const openapiBody = openapi.json() as { openapi: string; info: { title: string } };
     expect(openapiBody.openapi).toBe("3.1.0");
     expect(openapiBody.info.title).toBe("SynthKit API");
-    const openapiPaths = (openapiBody as { paths?: Record<string, { post?: { requestBody?: unknown } }> }).paths;
-    expect(openapiPaths?.["/v1/projects"]?.post?.requestBody).toBeTruthy();
+    const openapiPaths = (openapiBody as {
+      paths?: Record<string, Record<string, { requestBody?: unknown }>>;
+    }).paths;
+    for (const route of apiRouteDefinitions) {
+      const openapiPath = route.path.replace(/:([A-Za-z0-9_]+)/g, "{$1}");
+      expect(openapiPaths?.[openapiPath]).toBeTruthy();
+      expect(openapiPaths?.[openapiPath]?.[route.method]).toBeTruthy();
+      if (route.requestBody) {
+        expect(openapiPaths?.[openapiPath]?.[route.method]?.requestBody).toBeTruthy();
+      }
+    }
     const project = await server.app.inject({
       method: "POST",
       url: "/v1/projects",
