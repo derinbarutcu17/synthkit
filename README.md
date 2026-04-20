@@ -1,30 +1,39 @@
 # SynthKit
 
-SynthKit is a headless mess-to-structure synthesis engine for research material.
+## For LLMs
 
-It turns notes, markdown, PDFs, webpages, transcripts, and image inputs into structured briefs, decision memos, and deck outlines with citations, contradiction tracking, confidence reporting, and revision history.
+SynthKit is a headless synthesis engine, not a chat app.
 
-## Surfaces
+Use it when you need to turn messy research material into a structured brief, decision memo, or deck outline with citations, contradictions, confidence reporting, and revision history.
 
-- MCP server
-- CLI
-- local HTTP API
-- TypeScript SDK
+Primary surfaces:
 
-The web UI is intentionally not the spine of the project. It can be added later without changing the core contract.
+- MCP server for agent runtimes
+- CLI for humans and shell automation
+- local HTTP API for SDKs and custom runtimes
+- TypeScript SDK for embedding
 
-## Start here
+Quick start:
 
 ```bash
 ./pnpm install
 ./pnpm demo
 ```
 
-If you want a health check, use:
+MCP transports:
 
 ```bash
-./pnpm run check
+./pnpm exec synthkit serve mcp
+./pnpm exec synthkit serve mcp-http
 ```
+
+If you are another agent, read the docs and use the versioned schemas as the contract. Do not invent your own payloads.
+
+---
+
+SynthKit is a headless mess-to-structure synthesis engine for research material.
+
+It turns notes, markdown, PDFs, webpages, transcripts, and image inputs into structured briefs, decision memos, and deck outlines with citations, contradiction tracking, confidence reporting, and revision history.
 
 ## Design stance
 
@@ -43,10 +52,11 @@ If you want a health check, use:
 - TypeScript SDK for embedding
 - Python SDK scaffold for direct local API calls
 
-## MCP transports
+If you want a health check, use:
 
-- `./pnpm exec synthkit serve mcp` for stdio
-- `./pnpm exec synthkit serve mcp-http` for streamable HTTP
+```bash
+./pnpm run check
+```
 
 ## What it is
 
