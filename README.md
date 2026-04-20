@@ -2,25 +2,44 @@
 
 ## For LLMs
 
-SynthKit is a headless synthesis engine, not a chat app.
+SynthKit is a headless synthesis engine, not a chat app. It turns messy research material into structured outputs with citations, contradictions, confidence reporting, and revision history.
 
-Use it when you need to turn messy research material into a structured brief, decision memo, or deck outline with citations, contradictions, confidence reporting, and revision history.
+### What it is for
 
-Primary surfaces:
+- research brief generation
+- decision memo synthesis
+- deck outline creation
+- inspectable evidence and revision workflows
 
-- MCP server for agent runtimes
-- CLI for humans and shell automation
-- local HTTP API for SDKs and custom runtimes
-- TypeScript SDK for embedding
+### Primary surfaces
 
-Quick start:
+- 🤖 MCP server for agent runtimes
+- 🧪 CLI for humans and shell automation
+- 🌐 local HTTP API for SDKs and custom runtimes
+- 🧩 TypeScript SDK for embedding
+
+### Model backends
+
+- 🧪 `mock` for zero-key demos
+- 🤖 `openai`
+- 🧠 `anthropic`
+- 🐳 `ollama`
+
+### Agent surfaces
+
+- Claude Code via MCP
+- Codex CLI or IDE via CLI / local API
+- custom runtimes via HTTP JSON
+- scripts and automations via the SDKs
+
+### Quick start
 
 ```bash
 ./pnpm install
 ./pnpm demo
 ```
 
-MCP transports:
+### MCP transports
 
 ```bash
 ./pnpm exec synthkit serve mcp
@@ -45,12 +64,12 @@ It turns notes, markdown, PDFs, webpages, transcripts, and image inputs into str
 
 ## Surfaces
 
-- MCP server for agent runtimes
-- CLI for humans and shell automation
-- streamable HTTP MCP for remote tool callers
-- local HTTP API for SDKs and custom runtimes
-- TypeScript SDK for embedding
-- Python SDK with ergonomic workflow helpers for direct local API calls
+- 🤖 MCP server for agent runtimes
+- 🧪 CLI for humans and shell automation
+- 🌐 streamable HTTP MCP for remote tool callers
+- 🌐 local HTTP API for SDKs and custom runtimes
+- 🧩 TypeScript SDK for embedding
+- 🐍 Python SDK with ergonomic workflow helpers for direct local API calls
 
 If you want a health check, use:
 
