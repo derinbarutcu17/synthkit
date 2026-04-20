@@ -1,0 +1,14 @@
+node_modules
+dist
+build
+coverage
+.turbo
+.synthkit
+.DS_Store
+*.log
+*.sqlite
+*.sqlite-journal
+*.db
+tmp
+temp
+out
