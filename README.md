@@ -66,6 +66,17 @@ It turns notes, markdown, PDFs, webpages, transcripts, and image inputs into str
 - versioned schemas are the contract
 - clients stay thin
 
+## Conceptual architecture
+
+The diagram below is conceptual architecture based on the current repo structure.
+
+```mermaid
+flowchart LR
+    A[Messy input materials / research notes] --> B[Extraction / structuring]
+    B --> T[Synthesis templates]
+    T --> O[Briefs / memos / outlines / deck structures]
+```
+
 ## Surfaces
 
 - 🤖 MCP server for agent runtimes
